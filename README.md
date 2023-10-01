@@ -2,7 +2,7 @@
 
 This project aims to further my learning on how to integrate a cloud database into a program. The software created is a photo editing database management program that allows photographers to add/update sessions, track the number of images edited, and calculate amounts due. The program is integrated with a Firebase Cloud Database to allow for easy access and sharing of data among different users.
 
-[Software Demo Video](https://studio.youtube.com/video/Hd0eg9BYg4A/edit)
+[Software Demo Video](https://www.youtube.com/watch?v=EQ_h5ioNwu0)
 
 # Cloud Database
 

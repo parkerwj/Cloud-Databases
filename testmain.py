@@ -18,10 +18,8 @@ def main_menu():
     print("3. Display Active Sessions")
     print("4. Display Amount Due")
     print("5. Exit")
-
     # Get user input
     choice = input("Enter your choice: ")
-
     # Process user input
     if choice == "1":
         photographer_menu()
@@ -29,8 +27,10 @@ def main_menu():
         session_menu()
     elif choice == "3":
         display_active_sessions()
+        main_menu()
     elif choice == "4":
         display_amount_due()
+        main_menu()
     elif choice == "5":
         exit()
     else:
@@ -43,15 +43,15 @@ def photographer_menu():
     print("1. Add Photographer")
     print("2. Update Photographer")
     print("3. Back to Main Menu")
-
     # Get user input
     choice = input("Enter your choice: ")
-
     # Process user input
     if choice == "1":
         add_photographer()
+        photographer_menu()
     elif choice == "2":
         update_photographer()
+        photographer_menu()
     elif choice == "3":
         main_menu()
     else:
@@ -63,7 +63,6 @@ def add_photographer():
     name = input("Photographer name: ")
     website = input("Photographer website: ")
     email = input("Photographer email: ")
-
     # Create a new document with auto ID
     doc_ref = db.collection("photographers").document()
     doc_ref.set({
@@ -72,9 +71,7 @@ def add_photographer():
         "email": email,
         "sessions": {}
     })
-
     print("Photographer added.")
-    photographer_menu()
 
 def update_photographer():
     # Get input from user
@@ -82,7 +79,6 @@ def update_photographer():
     name = input("New photographer name (leave blank if no change): ")
     website = input("New photographer website (leave blank if no change): ")
     email = input("New photographer email (leave blank if no change): ")
-
     # Update fields in the document
     doc_ref = db.collection("photographers").document(photographer_id)
     data = {}
@@ -92,12 +88,9 @@ def update_photographer():
         data["website"] = website
     if email:
         data["email"] = email
-
     if data:
         doc_ref.update(data)
-
     print("Photographer updated.")
-    photographer_menu()
 
 def session_menu():
     # Display session menu
@@ -106,17 +99,18 @@ def session_menu():
     print("2. Edit Session")
     print("3. Delete Session")
     print("4. Back to Main Menu")
-
     # Get user input
     choice = input("Enter your choice: ")
-
     # Process user input
     if choice == "1":
         add_session()
+        session_menu()
     elif choice == "2":
         edit_session()
+        session_menu()
     elif choice == "3":
         delete_session()
+        session_menu()
     elif choice == "4":
         main_menu()
     else:
@@ -140,20 +134,14 @@ def add_session():
     for i in range(business_days_to_add):
         # Add one day to the current date
         return_by_date += datetime.timedelta(days=1)
-
     # Check if it's a weekend, if yes add necessary days to get to Monday
     while return_by_date.weekday() in (5, 6):
         return_by_date += datetime.timedelta(days=1)
-
     log_transaction(db, f"added {session_type}:{session_name} for the photographer: {photographer_id}, Paid: {is_paid}, Session Date: {session_date}, Delivered Date: {delivered_date}, Images {num_images}, Price Per Image: {price_per_image}, return_by_date: {return_by_date}, is_returned: {is_returned}")
-
-
     # Compute total cost
     total_cost = num_images * price_per_image
-
     # Add new session to the photographer's document
     doc_ref = db.collection("photographers").document(photographer_id)
-    sessions = doc_ref.get().to_dict()["sessions"]
     new_session_ref = doc_ref.collection("sessions").document()
     new_session_ref.set({
         "session_type": session_type,
@@ -167,10 +155,7 @@ def add_session():
         "is_returned": is_returned,
         "total_cost": total_cost
     })
-
     print("Session added.")
-    
-    session_menu()
 
 def edit_session():
     # Get input from user
@@ -189,16 +174,15 @@ def edit_session():
     delivered_date = input("New delivered date (YYYY-MM-DD) (leave blank if no change): ")
     num_images_input = input("New number of images (leave blank if no change): ")
     num_images = int(num_images_input) if num_images_input else None
-    price_per_image_input = (input("New price per image (leave blank if no change): "))
+    price_per_image_input = input("New price per image (leave blank if no change): ")
     price_per_image = float(price_per_image_input) if price_per_image_input else None
     return_by_date = input("New return date (YYYY-MM-DD) (leave blank if no change): ")
     is_returned = True if input("Returned? (y/n): ") == "y" else False
-
     # Update fields in the session document
     data = {}
     if session_type:
         data["session_type"] = session_type
-    if not is_paid == "":
+    if is_paid != "":
         data["is_paid"] = is_paid
     if session_name:
         data["session_name"] = session_name
@@ -212,30 +196,23 @@ def edit_session():
         data["price_per_image"] = price_per_image
     if return_by_date:
         data["return_by_date"] = return_by_date
-    if is_returned:
+    if is_returned != "":
         data["is_returned"] = is_returned
     if data:
         session_ref.update(data)
-
     print("Session updated.")
-    session_menu()
 
 def delete_session():
     # Get input from user
     photographer_id = select_photographer()
     session_id = select_session(photographer_id)
-
     # Delete session document and remove reference from the photographer's document
     session_ref = db.collection("photographers").document(photographer_id).collection("sessions").document(session_id)
     session_ref.delete()
     doc_ref = db.collection("photographers").document(photographer_id)
     sessions = doc_ref.get().to_dict()["sessions"]
-
     doc_ref.update({"sessions": sessions})
-
     print("Session deleted.")
-    session_menu()
-
 
 def log_transaction(db, message):
     data = {"message": message, "timestamp": firestore.SERVER_TIMESTAMP}
@@ -246,38 +223,35 @@ def display_active_sessions():
     photographer_id = select_photographer()
 
     # Query the sessions collection of the photographer
-    query = db.collection("photographers").document(photographer_id).collection("sessions").where("is_returned", "==", "").select([])
-# Print out the active sessions
-    print(f"\nActive sessions for Photographer {photographer_id}:")
-    for doc in query.stream():
-        session_dict = doc.to_dict()
-        print(f"Session ID: {doc.id}")
-        for key, value in session_dict.items():
-            print(f"{key}: {value}")
-        print()
+    query = db.collection("photographers").document(photographer_id).collection("sessions").where("is_returned", "==", False).select([])
 
-    # Display session menu
-    session_menu()
+    # Print out the active sessions
+    print(f"\nActive sessions for Photographer {photographer_id}:\n")
+
+    for doc in query.stream():
+        print(f"Session ID: {doc.id}\n")
+        session_data = doc.to_dict()
+        for key in session_data:
+            print(f"{key.capitalize()}: {session_data[key]}")
 
 def display_amount_due():
-    # Get input from user
-    photographer_id = select_photographer()
-
-    # Query the sessions collection of the photographer
-    query = db.collection("photographers").document(photographer_id).collection("sessions").where("is_paid", "==", False).select(["total_cost"])
-    # Compute total amount due
-    total_due = sum([doc.to_dict()["total_cost"] for doc in query.stream()])
-
-    # Print out the total amount due
-    print(f"\nAmount Due for Photographer {photographer_id}: ${total_due:.2f}\n")
-
-    # Display main menu
-    main_menu()
+    # Query all photographer documents
+    query = db.collection("photographers").stream()
+    # Loop through each photographer and calculate their total amount due
+    for doc in query:
+        photographer_id = doc.id
+        photographer_dict = doc.to_dict()
+        total_due = 0
+        # Query the sessions collection of the photographer
+        sessions_query = db.collection("photographers").document(photographer_id).collection("sessions").where("is_paid", "==", False).select(["total_cost"])
+        # Compute total amount due for the photographer
+        total_due = sum([doc.to_dict()["total_cost"] for doc in sessions_query.stream()])
+        # Print out the total amount due for the photographer
+        print(f"\nAmount Due for Photographer {photographer_dict['name']}: ${total_due:.2f}")
 
 def select_photographer():
     # Query all photographer documents
     query = db.collection("photographers").stream()
-
     # Display a list of photographers
     print("\nSelect a Photographer")
     photographer_list = []
@@ -285,7 +259,6 @@ def select_photographer():
         photographer_dict = doc.to_dict()
         photographer_list.append(doc.id)
         print(f"{len(photographer_list)} - {photographer_dict['name']}")
-
     # Get user input
     choice = input("Enter the number of the photographer: ")
     try:
@@ -302,14 +275,12 @@ def select_photographer():
 def select_session(photographer_id):
     # Query the sessions collection of the photographer
     query = db.collection("photographers").document(photographer_id).collection("sessions").stream()
-
     # Display list of sessions
     print("\nSelect a Session")
     session_list = []
     for doc in query:
         session_list.append(doc.id)
         print(f"{len(session_list)} - {doc.to_dict()['session_name']}, {doc.to_dict()['session_date']}")
-
     # Get user input
     choice = input("Enter the number of the session: ")
     try:
