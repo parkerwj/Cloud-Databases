@@ -1,6 +1,8 @@
+
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+from firebase_admin import messaging
 import datetime
 
 # Initialize Firebase Admin SDK with the credential
@@ -10,6 +12,7 @@ firebase_admin.initialize_app(cred)
 # Get a Firestore instance
 db = firestore.client()
 
+# Function to handle main menu
 def main_menu():
     # Display main menu
     print("Main Menu")
@@ -37,6 +40,7 @@ def main_menu():
         print("Invalid choice. Please try again.")
         main_menu()
 
+# Function to handle photographer menu
 def photographer_menu():
     # Display photographer menu
     print("Photographer Menu")
@@ -58,6 +62,7 @@ def photographer_menu():
         print("Invalid choice. Please try again.")
         photographer_menu()
 
+# Function to add a new photographer
 def add_photographer():
     # Get input from user
     name = input("Photographer name: ")
@@ -73,9 +78,17 @@ def add_photographer():
         "sessions": {}
     })
 
-    print("Photographer added.")
-    photographer_menu()
+    # Send a notification to subscribers of the "new-photographer" topic
+    message = messaging.Message(
+        data={"message": "A new photographer has been added."},
+        topic="new-photographer"
+    )
+    response = messaging.send(message)
+    print("Photographer added. Message sent. Response:", response)
+    # Display main menu
+    main_menu()
 
+# Function to update an existing photographer
 def update_photographer():
     # Get input from user
     photographer_id = select_photographer()
@@ -97,8 +110,10 @@ def update_photographer():
         doc_ref.update(data)
 
     print("Photographer updated.")
-    photographer_menu()
+    # Display main menu
+    main_menu()
 
+# Function to handle session menu
 def session_menu():
     # Display session menu
     print("Session Menu")
@@ -123,6 +138,7 @@ def session_menu():
         print("Invalid choice. Please try again.")
         session_menu()
 
+# Function to add a new session
 def add_session():
     # Get input from user
     photographer_id = select_photographer()
@@ -146,7 +162,6 @@ def add_session():
 
     log_transaction(db, f"added {session_type}:{session_name} for the photographer: {photographer_id}, Paid: {is_paid}, Session Date: {session_date}, Delivered Date: {delivered_date}, Images {num_images}, Price Per Image: {price_per_image}, return_date: {return_date}")
 
-
     # Compute total cost
     total_cost = num_images * price_per_image
 
@@ -167,9 +182,10 @@ def add_session():
     })
 
     print("Session added.")
-    
-    session_menu()
 
+    # Display main menu
+    main_menu()
+# Function to edit an existing session
 def edit_session():
     # Get input from user
     photographer_id = select_photographer()
@@ -214,8 +230,11 @@ def edit_session():
         session_ref.update(data)
 
     print("Session updated.")
-    session_menu()
+    
+    # Display main menu
+    main_menu()
 
+# Function to delete an existing session
 def delete_session():
     # Get input from user
     photographer_id = select_photographer()
@@ -230,13 +249,16 @@ def delete_session():
     doc_ref.update({"sessions": sessions})
 
     print("Session deleted.")
-    session_menu()
 
+    # Display main menu
+    main_menu()
 
+# Function to log transaction data to Firestore
 def log_transaction(db, message):
     data = {"message": message, "timestamp": firestore.SERVER_TIMESTAMP}
     db.collection("log").add(data)
 
+# Function to display a list of active sessions for a photographer
 def display_active_sessions():
     # Get input from user
     photographer_id = select_photographer()
@@ -257,6 +279,7 @@ def display_active_sessions():
     # Display session menu
     session_menu()
 
+# Function to display the total amount due for a photographer
 def display_amount_due():
     # Get input from user
     photographer_id = select_photographer()
@@ -273,6 +296,7 @@ def display_amount_due():
     # Display main menu
     main_menu()
 
+# Function to select a photographer from the Firestore database
 def select_photographer():
     # Query all photographer documents
     query = db.collection("photographers").stream()
@@ -297,7 +321,9 @@ def select_photographer():
     except ValueError:
         print("Invalid choice. Please try again.")
         return select_photographer()
+    
 
+# Function to select a session from the Firestore database
 def select_session(photographer_id):
     # Query the sessions collection of the photographer
     query = db.collection("photographers").document(photographer_id).collection("sessions").stream()
@@ -322,5 +348,23 @@ def select_session(photographer_id):
         print("Invalid choice. Please try again.")
         return select_session(photographer_id)
 
-# Start the program
-main_menu()
+# Function to send notification when a new photographer is added
+def on_snapshot(docs, changes, read_time):
+    for doc in docs:
+        # Check if this is a new document that was just added
+        if doc.create_time == read_time:
+            # Send a notification to subscribers of the "new-photographer" topic
+            message = messaging.Message(
+                data={"message": "A new photographer has been added."},
+                topic="new-photographer"
+            )
+            response = messaging.send(message)
+            print("Photographer added. Message sent. Response:", response)
+
+# Listen to changes in the "photographers" collection
+doc_ref = db.collection("photographers")
+response = doc_ref.on_snapshot(lambda docs, changes, read_time: on_snapshot(docs, changes, read_time))
+
+# Run the main program
+if __name__ == "__main__":
+    main_menu()
